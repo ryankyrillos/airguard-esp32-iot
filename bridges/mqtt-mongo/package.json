@@ -1,0 +1,23 @@
+{
+  "name": "airguard-mqtt-bridge",
+  "version": "1.0.0",
+  "description": "MQTT to MongoDB bridge for Airguard",
+  "main": "bridge.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bridge.js",
+    "dev": "nodemon bridge.js"
+  },
+  "keywords": ["mqtt", "mongodb", "iot"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "mqtt": "^5.3.4",
+    "mongodb": "^6.3.0",
+    "dotenv": "^16.3.1",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Airguard ESP32 Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/airguard/host/python-gateway
+Environment="PATH=/home/YOUR_USERNAME/airguard/host/python-gateway/venv/bin"
+ExecStart=/home/YOUR_USERNAME/airguard/host/python-gateway/venv/bin/python gateway.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

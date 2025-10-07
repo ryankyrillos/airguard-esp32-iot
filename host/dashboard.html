@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airguard Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            font-size: 16px;
+            color: #6b7280;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        
+        .unit {
+            font-size: 16px;
+            color: #9ca3af;
+            margin-left: 5px;
+        }
+        
+        .label {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+        
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #f3f4f6;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+        
+        tr:hover {
+            background: #f9fafb;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .badge.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .map {
+            height: 300px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+        
+        .timestamp {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        
+        #connectionStatus {
+            font-size: 14px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                🛡️ Airguard Dashboard
+                <span id="wsStatus" class="status disconnected">Disconnected</span>
+            </h1>
+            <p id="connectionStatus">Connecting to WebSocket...</p>
+        </header>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>Latest Batch</h2>
+                <div class="value" id="batchId">—</div>
+                <div class="label">Batch ID</div>
+            </div>
+            
+            <div class="card">
+                <h2>Session Duration</h2>
+                <div class="value">
+                    <span id="sessionMs">—</span>
+                    <span class="unit">ms</span>
+                </div>
+                <div class="label" id="sessionLabel">—</div>
+            </div>
+            
+            <div class="card">
+                <h2>Samples</h2>
+                <div class="value" id="samples">—</div>
+                <div class="label">IMU readings averaged</div>
+            </div>
+            
+            <div class="card">
+                <h2>GPS Fix</h2>
+                <div class="value">
+                    <span id="gpsFix">—</span>
+                    <span class="unit">satellites</span>
+                </div>
+                <div class="label" id="gpsLabel">—</div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>Acceleration</h2>
+                <div style="margin: 10px 0;">
+                    X: <strong id="ax">—</strong> m/s²
+                </div>
+                <div style="margin: 10px 0;">
+                    Y: <strong id="ay">—</strong> m/s²
+                </div>
+                <div style="margin: 10px 0;">
+                    Z: <strong id="az">—</strong> m/s²
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Gyroscope</h2>
+                <div style="margin: 10px 0;">
+                    X: <strong id="gx">—</strong> rad/s
+                </div>
+                <div style="margin: 10px 0;">
+                    Y: <strong id="gy">—</strong> rad/s
+                </div>
+                <div style="margin: 10px 0;">
+                    Z: <strong id="gz">—</strong> rad/s
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Temperature</h2>
+                <div class="value">
+                    <span id="tempC">—</span>
+                    <span class="unit">°C</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Location</h2>
+                <div style="margin: 10px 0;">
+                    Lat: <strong id="lat">—</strong>
+                </div>
+                <div style="margin: 10px 0;">
+                    Lon: <strong id="lon">—</strong>
+                </div>
+                <div style="margin: 10px 0;">
+                    Alt: <strong id="alt">—</strong> m
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <h2 style="margin-bottom: 15px;">Recent Samples</h2>
+            <table id="samplesTable">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Batch ID</th>
+                        <th>Duration</th>
+                        <th>Samples</th>
+                        <th>GPS Fix</th>
+                        <th>Sats</th>
+                        <th>Location</th>
+                        <th>Accel (Z)</th>
+                        <th>Temp</th>
+                    </tr>
+                </thead>
+                <tbody id="samplesBody">
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: #9ca3af;">
+                            Waiting for data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const WS_URL = 'ws://localhost:8081';
+        let ws = null;
+        let samples = [];
+        
+        // Connect to WebSocket
+        function connect() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('wsStatus').textContent = 'Connected';
+                document.getElementById('wsStatus').className = 'status connected';
+                document.getElementById('connectionStatus').textContent = 'Live updates enabled';
+            };
+            
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                
+                if (msg.type === 'connected') {
+                    console.log('Server:', msg.message);
+                } else if (msg.type === 'new_sample') {
+                    handleNewSample(msg.data);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.getElementById('wsStatus').textContent = 'Disconnected';
+                document.getElementById('wsStatus').className = 'status disconnected';
+                document.getElementById('connectionStatus').textContent = 'Reconnecting in 5s...';
+                
+                // Reconnect after 5 seconds
+                setTimeout(connect, 5000);
+            };
+        }
+        
+        // Handle new sample
+        function handleNewSample(data) {
+            console.log('New sample:', data);
+            
+            // Update latest values
+            document.getElementById('batchId').textContent = data.batchId || '—';
+            document.getElementById('sessionMs').textContent = (data.sessionMs || 0).toLocaleString();
+            document.getElementById('sessionLabel').textContent = 
+                `${((data.sessionMs || 0) / 1000).toFixed(1)} seconds`;
+            document.getElementById('samples').textContent = (data.samples || 0).toLocaleString();
+            
+            const hasFix = data.gpsFix === 1;
+            document.getElementById('gpsFix').textContent = data.sats || 0;
+            document.getElementById('gpsLabel').textContent = hasFix ? 'Fix acquired' : 'No fix';
+            
+            document.getElementById('ax').textContent = (data.ax || 0).toFixed(2);
+            document.getElementById('ay').textContent = (data.ay || 0).toFixed(2);
+            document.getElementById('az').textContent = (data.az || 0).toFixed(2);
+            
+            document.getElementById('gx').textContent = (data.gx || 0).toFixed(3);
+            document.getElementById('gy').textContent = (data.gy || 0).toFixed(3);
+            document.getElementById('gz').textContent = (data.gz || 0).toFixed(3);
+            
+            document.getElementById('tempC').textContent = (data.tempC || 0).toFixed(1);
+            
+            document.getElementById('lat').textContent = (data.lat || 0).toFixed(6);
+            document.getElementById('lon').textContent = (data.lon || 0).toFixed(6);
+            document.getElementById('alt').textContent = (data.alt || 0).toFixed(1);
+            
+            // Add to table
+            samples.unshift(data);
+            if (samples.length > 50) samples.pop();
+            
+            updateTable();
+        }
+        
+        // Update table
+        function updateTable() {
+            const tbody = document.getElementById('samplesBody');
+            
+            if (samples.length === 0) return;
+            
+            tbody.innerHTML = samples.map(s => `
+                <tr>
+                    <td class="timestamp">${formatTimestamp(s)}</td>
+                    <td><code>${s.batchId}</code></td>
+                    <td>${((s.sessionMs || 0) / 1000).toFixed(1)}s</td>
+                    <td>${(s.samples || 0).toLocaleString()}</td>
+                    <td>
+                        <span class="badge ${s.gpsFix === 1 ? 'success' : 'error'}">
+                            ${s.gpsFix === 1 ? 'YES' : 'NO'}
+                        </span>
+                    </td>
+                    <td>${s.sats || 0}</td>
+                    <td>${(s.lat || 0).toFixed(4)}, ${(s.lon || 0).toFixed(4)}</td>
+                    <td>${(s.az || 0).toFixed(2)}</td>
+                    <td>${(s.tempC || 0).toFixed(1)}°C</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Format timestamp
+        function formatTimestamp(sample) {
+            if (sample.receivedTs) {
+                return new Date(sample.receivedTs).toLocaleString();
+            } else if (sample.createdAt) {
+                return new Date(sample.createdAt).toLocaleString();
+            }
+            return 'Unknown';
+        }
+        
+        // Load initial data from API
+        async function loadInitialData() {
+            try {
+                const response = await fetch('http://localhost:8080/v1/samples?limit=20');
+                const result = await response.json();
+                
+                if (result.samples && result.samples.length > 0) {
+                    samples = result.samples;
+                    handleNewSample(result.samples[0]); // Show latest
+                    updateTable();
+                }
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
+            }
+        }
+        
+        // Initialize
+        connect();
+        loadInitialData();
+    </script>
+</body>
+</html>

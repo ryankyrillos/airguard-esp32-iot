@@ -1,0 +1,13 @@
+{
+  "name": "airguard-mqtt-broker",
+  "version": "1.0.0",
+  "description": "Lightweight MQTT broker for Airguard",
+  "main": "broker.js",
+  "scripts": {
+    "start": "node broker.js"
+  },
+  "dependencies": {
+    "aedes": "^0.51.0",
+    "dotenv": "^16.4.5"
+  }
+}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Airguard MQTT to MongoDB Bridge
+After=network.target mongodb.service mosquitto.service
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/airguard/bridges/mqtt-mongo
+ExecStart=/usr/bin/node bridge.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
