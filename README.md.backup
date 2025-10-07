@@ -63,55 +63,65 @@
 
 ## 🏗️ System Architecture
 
-```mermaid
-graph TB
-    subgraph Hardware["🔧 Hardware Layer"]
-        A["ESP32-S3 SENDER<br/>GPS NEO-6M + MPU6050<br/>Button + NeoPixel LED<br/>10-second hold gating"]
-        B["ESP32-S3 RECEIVER<br/>JSON + Human-Readable Output"]
-    end
-    
-    subgraph Gateway["🔌 Gateway Layer"]
-        C["PYTHON GATEWAY<br/>• Parses Serial Data<br/>• SQLite Storage<br/>• MQTT Publisher<br/>• REST Client"]
-    end
-    
-    subgraph Messaging["📡 Message Broker"]
-        D["MQTT BROKER<br/>Aedes - Port 1883<br/>QoS 1"]
-    end
-    
-    subgraph Processing["⚙️ Processing Layer"]
-        E["MQTT-MONGODB BRIDGE<br/>• Subscribe espnow/samples<br/>• Insert to MongoDB<br/>• WebSocket Broadcast"]
-        F["NODE.JS BACKEND<br/>• REST API Port 8080<br/>• WebSocket Port 8081<br/>• Query MongoDB"]
-    end
-    
-    subgraph Storage["💾 Data Storage"]
-        G[("MONGODB<br/>Database: airguard<br/>Collection: samples")]
-        H[("SQLite<br/>Local Backup")]
-    end
-    
-    subgraph Frontend["🌐 Frontend"]
-        I["WEB DASHBOARD<br/>• Real-time Display<br/>• GPS Mapping<br/>• Historical Data<br/>• Live WebSocket Updates"]
-    end
-    
-    A -->|ESP-NOW Wireless| B
-    B -->|USB Serial<br/>115200 baud| C
-    C -->|Store| H
-    C -->|Publish| D
-    C -->|POST /v1/samples| F
-    D -->|Subscribe| E
-    E -->|Insert| G
-    F -->|Query| G
-    F -->|WebSocket Stream| I
-    E -->|WebSocket Broadcast| I
-    
-    style A fill:#ff6b6b,stroke:#c92a2a,stroke-width:2px,color:#fff
-    style B fill:#ff8787,stroke:#c92a2a,stroke-width:2px,color:#fff
-    style C fill:#4dabf7,stroke:#1971c2,stroke-width:2px,color:#fff
-    style D fill:#ffd43b,stroke:#f08c00,stroke-width:2px,color:#000
-    style E fill:#51cf66,stroke:#2f9e44,stroke-width:2px,color:#fff
-    style F fill:#51cf66,stroke:#2f9e44,stroke-width:2px,color:#fff
-    style G fill:#845ef7,stroke:#5f3dc4,stroke-width:2px,color:#fff
-    style H fill:#845ef7,stroke:#5f3dc4,stroke-width:2px,color:#fff
-    style I fill:#ff6b6b,stroke:#c92a2a,stroke-width:2px,color:#fff
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         ESP32-S3 SENDER                         │
+│  GPS (NEO-6M) + IMU (MPU6050) + Button + NeoPixel LED          │
+│                    10-second hold gating                         │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ ESP-NOW Wireless
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       ESP32-S3 RECEIVER                          │
+│              Outputs JSON + Human-Readable Format                │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ USB Serial (COM12 @ 115200)
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      PYTHON GATEWAY                              │
+│    • Parses serial data (JSON + fenced block formats)           │
+│    • Stores to SQLite (local database)                          │
+│    • Publishes to MQTT broker                                   │
+│    • POSTs to REST API                                          │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ MQTT Publish (QoS 1)
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       MQTT BROKER                                │
+│                    (Aedes - Port 1883)                           │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ Subscribe
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   MQTT-MONGODB BRIDGE                            │
+│    • Subscribes to espnow/samples topic                         │
+│    • Inserts data into MongoDB                                  │
+│    • Broadcasts to WebSocket clients                            │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        MONGODB                                   │
+│              Database: airguard                                  │
+│              Collection: samples                                 │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     NODE.JS BACKEND                              │
+│    • REST API (Express - Port 8080)                             │
+│    • WebSocket Server (Port 8081)                               │
+│    • Serves historical data from MongoDB                        │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ WebSocket Stream
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    WEB DASHBOARD                                 │
+│    • Real-time sensor data display                              │
+│    • GPS location mapping                                       │
+│    • Historical data table                                      │
+│    • Live updates via WebSocket                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -187,22 +197,15 @@ SERIAL_PORT=COM12  # Change to your receiver's COM port
 
 ### 4. Start All Services
 
-**Cross-Platform (Recommended):**
-```bash
-# Install script dependencies first
-pip install -r requirements-scripts.txt
-
-# Start all services
-python start-services.py
-```
-
-**Windows (Legacy PowerShell):**
 ```powershell
+# Windows
+cd C:\Users\Admin\esp32dongle
 .\start-services.ps1
 ```
 
-**Linux/Mac (Legacy Shell):**
 ```bash
+# Linux/Mac
+cd ~/esp32dongle
 chmod +x start-services.sh
 ./start-services.sh
 ```
@@ -268,610 +271,454 @@ Data is **only sent** when **ALL** conditions are met:
 
 **If any fail:** RED ×3 blinks, packet discarded.
 
----
 
-## 📦 Packet Format (64 bytes)
 
-```c
+**Receiver Device:**## Packet Format (64 bytes)
+
+- ESP32-S3 DevKit
+
+- USB connection to host computer```c
+
 typedef struct {
-  uint32_t batchId;      // Unique ID (esp_random())
+
+### Host Computer  uint32_t batchId;      // Unique ID (esp_random())
+
   uint32_t sessionMs;    // Hold duration (ms)
-  uint32_t samples;      // IMU samples averaged
-  uint32_t dateYMD;      // YYYYMMDD (0 if invalid)
-  uint32_t timeHMS;      // HHMMSS   (0 if invalid)
-  uint16_t msec;         // Milliseconds
+
+- **OS**: Windows 10/11, Linux, or macOS  uint32_t samples;      // IMU samples averaged
+
+- **RAM**: 4GB minimum (8GB recommended)  uint32_t dateYMD;      // YYYYMMDD (0 if invalid)
+
+- **Storage**: 1GB free space  uint32_t timeHMS;      // HHMMSS   (0 if invalid)
+
+- **Ports**: USB port for ESP32 receiver  uint16_t msec;         // Milliseconds
+
   float lat, lon, alt;   // GPS coordinates
-  uint8_t gpsFix, sats;  // Fix status, satellite count
+
+---  uint8_t gpsFix, sats;  // Fix status, satellite count
+
   float ax, ay, az;      // Accel (m/s²)
-  float gx, gy, gz;      // Gyro (rad/s)
+
+## ⚡ Quick Start (5 Minutes)  float gx, gy, gz;      // Gyro (rad/s)
+
   float tempC;           // Temperature (°C)
-} SensorPacket;
+
+### Prerequisites} SensorPacket;
+
 ```
 
-```mermaid
-sequenceDiagram
-    participant S as Sender ESP32
-    participant R as Receiver ESP32
-    participant P as Python Gateway
-    participant M as MQTT Broker
-    participant B as MQTT Bridge
-    participant D as MongoDB
-    participant N as Node Backend
-    participant W as Web Dashboard
+✅ Node.js 18+ installed  
 
-    S->>S: Button pressed (10s hold)
-    S->>S: Collect GPS + IMU data
-    S->>S: Validate gating rules
-    S->>R: ESP-NOW packet (64 bytes)
-    R->>R: Parse packet
-    R->>P: Serial output (JSON + Text)
-    P->>P: Parse & validate
-    par Parallel Storage
-        P->>P: Store to SQLite
-        P->>M: Publish MQTT
-        P->>N: POST /v1/samples
-    end
-    M->>B: Forward message
-    B->>D: Insert document
-    B->>W: WebSocket broadcast
-    N->>D: Insert document
-    N->>W: WebSocket broadcast
-    W->>W: Update UI (real-time)
+✅ Python 3.9+ installed  ## Data Flow
+
+✅ MongoDB installed and running  
+
+✅ Arduino IDE with ESP32-S3 board support  1. **Sender** accumulates IMU samples while button held
+
+✅ Both ESP32 devices programmed and connected  2. On release (if ≥10s + all gates pass) → Send 64B packet via ESP-NOW
+
+3. **Receiver** outputs to serial (fenced block + optional JSON)
+
+### 1. Upload Firmware (If Not Already Done)4. **Python Gateway** parses serial →
+
+   - Stores to SQLite
+
+**Sender:**   - POSTs to REST API
+
+```   - Publishes to MQTT
+
+Arduino IDE → Open: esp32s3-gps-mpu-button-sender/esp32s3-gps-mpu-button-sender.ino5. **Node Backend** receives POST →
+
+Select Board: ESP32-S3 Dev Module   - Stores to MongoDB
+
+Upload to sender ESP32   - Broadcasts via WebSocket
+
+```6. **MQTT Bridge** (optional) subscribes MQTT →
+
+   - Stores to MongoDB
+
+**Receiver:**   - Broadcasts via WebSocket
+
 ```
 
----
+Arduino IDE → Open: esp32s3-receiver-json/esp32s3-receiver-json.ino## API Endpoints
 
-## 📖 Detailed Setup Guide
+Select Board: ESP32-S3 Dev Module
 
-### Step 1: Install Dependencies
+Upload to receiver ESP32### Node Backend
 
-#### Windows (PowerShell as Administrator)
-
-```powershell
-# Install Chocolatey (if not installed)
-Set-ExecutionPolicy Bypass -Scope Process -Force
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
-# Install Node.js, Python, Git
-choco install -y nodejs-lts python git
-
-# Install MongoDB
-choco install -y mongodb
-
-# Start MongoDB service
-net start MongoDB
 ```
 
-#### Linux (Ubuntu/Debian)
+**POST `/v1/samples`** - Insert sample
 
-```bash
-# Update package list
-sudo apt update
+### 2. Identify COM Ports (Windows)**GET `/v1/samples?limit=100`** - Get latest samples
 
-# Install Node.js 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
+**GET `/v1/samples/:batchId`** - Get specific sample
 
-# Install Python 3.9+
-sudo apt install -y python3 python3-pip python3-venv
+```powershell**GET `/health`** - Health check
 
-# Install MongoDB
-wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-sudo apt update
-sudo apt install -y mongodb-org
+# List all COM ports
 
-# Start MongoDB
-sudo systemctl start mongod
-sudo systemctl enable mongod
-```
+[System.IO.Ports.SerialPort]::getportnames()### WebSocket
 
-#### macOS
 
-```bash
-# Install Homebrew (if not installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install dependencies
-brew install node@18 python@3.9 mongodb-community
+# Identify which ESP32 is which:**Connect:** `ws://localhost:8081`
 
-# Start MongoDB
-brew services start mongodb-community
-```
+# Sender: Shows [MEASURE], [SEND] messages
 
-### Step 2: Clone Repository
+# Receiver: Shows GPS/sensor data output**Message on new sample:**
 
-```bash
-git clone https://github.com/ryankyrillos/airguard-esp32-iot.git
-cd airguard-esp32-iot
-```
+``````json
 
-### Step 3: Install Python Dependencies
+{
 
-```bash
-cd host/python-gateway
-python -m venv venv
+### 3. Configure Serial Port  "type": "new_sample",
 
-# Windows
-.\venv\Scripts\Activate.ps1
+  "data": { ... }
 
-# Linux/Mac
-source venv/bin/activate
+Edit `host/python-gateway/.env`:}
 
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your COM port
-```
+```env```
 
-### Step 4: Install Node Dependencies
+SERIAL_PORT=COM12  # Change to your receiver's COM port
 
-```bash
-# Node Backend
-cd ../../host/node-backend
-npm install
-cp .env.example .env
+```## Hot-Plug Support
 
-# MQTT Broker
-cd ../../mqtt-broker
-npm install
 
-# MQTT-MongoDB Bridge
-cd ../bridges/mqtt-mongo
-npm install
-cp .env.example .env
-```
 
-### Step 5: Upload ESP32 Firmware
+### 4. Start All Services**MPU6050:**
 
-1. Open Arduino IDE
-2. Install ESP32 board support (File → Preferences → Additional Boards Manager URLs):
-   ```
-   https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-   ```
-3. Tools → Board → ESP32 Arduino → ESP32S3 Dev Module
-4. Tools → Manage Libraries → Install: `Adafruit NeoPixel`, `Adafruit MPU6050`, `TinyGPSPlus`, `ArduinoJson`
+- Probed every 1s via WHO_AM_I register
 
-**Upload Sender:**
-```
-File → Open → esp32s3-gps-mpu-button-sender/esp32s3-gps-mpu-button-sender.ino
-Tools → Port → [Select sender port]
-Sketch → Upload
-```
+```powershell- Auto-reinitializes on detect
 
-**Upload Receiver:**
-```
-File → Open → esp32s3-receiver-json/esp32s3-receiver-json.ino
-Tools → Port → [Select receiver port]
-Sketch → Upload
-```
+# Windows- First 10 reads discarded (warmup)
 
-### Step 6: Find Receiver COM Port
+cd C:\Users\Admin\esp32dongle- LED updates to BLUE blinking if unplugged
 
-**Windows:**
-```powershell
-[System.IO.Ports.SerialPort]::getportnames()
-```
-
-**Linux:**
-```bash
-ls /dev/ttyUSB* /dev/ttyACM*
-```
-
-**macOS:**
-```bash
-ls /dev/cu.usbserial-*
-```
-
-Open Arduino Serial Monitor on each device to identify which is which:
-- **Sender**: Shows `[MEASURE]`, `[SEND]` messages
-- **Receiver**: Shows GPS/sensor data output
-
-### Step 7: Configure COM Port
-
-Edit `host/python-gateway/.env`:
-```env
-SERIAL_PORT=COM12  # Replace with your receiver's port
-```
-
-### Step 8: Start Services
-
-**Cross-Platform (Python - Recommended):**
-```bash
-# Install script dependencies
-pip install -r requirements-scripts.txt
-
-# Start all services
-python start-services.py
-```
-
-**Windows (PowerShell - Legacy):**
-```powershell
 .\start-services.ps1
-```
 
-**Linux/Mac (Shell - Legacy):**
-```bash
+```**GPS:**
+
+- Monitored via UART activity and parsed updates
+
+```bash- Presence = char activity <3s
+
+# Linux/Mac- Freshness = parsed update <3s
+
+cd ~/esp32dongle- LED updates to BLUE blinking if no fix
+
 chmod +x start-services.sh
-./start-services.sh
+
+./start-services.sh## Configuration
+
 ```
 
-**Or start individually:**
+### Sender Firmware
 
-```bash
-# Terminal 1: MQTT Broker
-cd mqtt-broker
-node broker.js
+### 5. Open DashboardEdit in `.ino`:
 
-# Terminal 2: Node Backend
-cd host/node-backend
-npm start
+```cpp
 
-# Terminal 3: MQTT-MongoDB Bridge
-cd bridges/mqtt-mongo
-node bridge.js
+Navigate to `host/dashboard.html` and open with your browser.uint8_t receiverMAC[6] = {0x48,0xCA,0x43,0x9A,0x48,0xD0};  // Your receiver MAC
 
-# Terminal 4: Python Gateway
-cd host/python-gateway
-python gateway_enhanced.py
-```
+#define WIFI_CHANNEL 1
 
-### Step 9: Open Dashboard
+### 6. Test!```
 
-Navigate to `host/dashboard.html` and open in your browser.
 
-### Step 10: Test!
 
-1. Press and hold button on sender ESP32
-2. Wait for LED to turn GREEN (after 10 seconds)
-3. Release button
-4. Check dashboard for new data!
+1. **Press button** on ESP32 sender (hold 10 seconds if first press)### Python Gateway
 
----
+2. **Wait for GPS fix** (LED turns blue when satellites acquired)Edit `host/python-gateway/.env`:
 
-## 🛠️ Troubleshooting
+3. **Watch data appear** in dashboard!```bash
 
-### No Data Appearing in Dashboard
+SERIAL_PORT=COM14              # Your COM port
 
-1. **Check COM Port**: Verify receiver is on correct port
-   ```powershell
-   # Windows
-   [System.IO.Ports.SerialPort]::getportnames()
-   ```
+---CLOUD_POST_URL=http://localhost:8080/v1/samples
 
-2. **Check Services**: All 4 services should be running
-   ```bash
-   # Check health endpoints
-   curl http://localhost:8080/health
-   ```
+MQTT_BROKER=127.0.0.1
 
-3. **Check Serial Output**: Open Arduino Serial Monitor on receiver (115200 baud)
-   - Should see data packets when sender transmits
+## 📖 Detailed Setup Guide```
 
-4. **Check MongoDB**: Verify connection
-   ```bash
-   mongosh
-   use airguard
-   db.samples.find().limit(1)
-   ```
 
-### GPS Not Getting Fix
 
-- **Move outdoors**: GPS needs clear sky view
-- **Wait 5-10 minutes**: Cold start takes time
-- **Check wiring**: TX2→RX, RX2→TX on ESP32
-- **LED Status**: Blue blinking = no fix, Blue steady = fix acquired
+### Step 1: Install Dependencies### Node Backend
 
-### MPU6050 Not Working
+Edit `host/node-backend/.env`:
 
-- **Check I2C Wiring**: SDA to GPIO21, SCL to GPIO22
-- **Check I2C Address**: Should be 0x68 (default)
-- **Run I2C Scanner**: Use Arduino I2C scanner sketch
-- **Power Cycle**: Unplug and replug ESP32
+#### Windows (PowerShell as Administrator)```bash
 
-### ESP-NOW Link Failing
+PORT=8080
 
-- **Check MAC Address**: Ensure sender has correct receiver MAC
-  ```cpp
-  uint8_t receiverMAC[6] = {0x48,0xCA,0x43,0x9A,0x48,0xD0};
-  ```
-- **Get Receiver MAC**: Add this to receiver setup():
-  ```cpp
-  Serial.print("MAC: ");
-  Serial.println(WiFi.macAddress());
-  ```
-- **Same WiFi Channel**: Both devices must use channel 1
-- **Distance**: Keep within 10 meters initially
+```powershellMONGO_URI=mongodb://localhost:27017
 
-### MongoDB Connection Failed
+# Install Chocolatey (if not installed)AUTH_TOKEN=your-secret-token
 
-**Windows:**
-```powershell
-# Check if MongoDB service is running
-Get-Service MongoDB
+Set-ExecutionPolicy Bypass -Scope Process -Force```
 
-# Start if stopped
-net start MongoDB
-```
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
 
-**Linux:**
-```bash
-sudo systemctl status mongod
-sudo systemctl start mongod
-```
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))## Troubleshooting
 
-### Port Already in Use
 
-```bash
-# Windows - Find process on port
-netstat -ano | findstr :8080
 
-# Linux/Mac
-lsof -i :8080
+# Install MongoDB**Sender LED stays WHITE:**
 
-# Kill process
-# Windows
-taskkill /PID <PID> /F
+choco install mongodb -y- Check receiver is powered and on same channel
 
-# Linux/Mac
-kill -9 <PID>
-```
+Start-Service MongoDB- Verify receiver MAC address in sender code
 
-### Common Issues
-
-**ESP-NOW link failing (WHITE LED):**
-- Check receiver is powered and on same channel
-- Verify receiver MAC address in sender code
 - Check serial output for ESP-NOW init errors
 
-**Sender LED blinks BLUE:**
-- Check GPS has clear sky view (satellites visible)
-- Verify MPU6050 wiring (SDA=21, SCL=22)
-- Check I2C connections
+# Verify MongoDB is running
 
-**RED ×3 on send:**
-- Press and hold ≥10 seconds (wait for GREEN ×3)
-- Ensure GPS has valid fix
-- Check MPU6050 is responding
+Get-Service MongoDB**Sender LED blinks BLUE:**
 
-**Python gateway COM port busy:**
-- Close Arduino Serial Monitor
-- Check Device Manager for correct port
+```- Check GPS has clear sky view (satellites visible)
+
+- Verify MPU6050 wiring (SDA=8, SCL=9)
+
+#### Linux (Ubuntu/Debian)- Check I2C connections
+
+
+
+```bash**RED ×3 on send:**
+
+# MongoDB- Press and hold ≥10 seconds (wait for GREEN ×3)
+
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -- Ensure GPS has fix (check NMEA output)
+
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list- Ensure MPU is healthy (check serial logs)
+
+sudo apt update
+
+sudo apt install -y mongodb-org**Python gateway COM port busy:**
+
+sudo systemctl start mongod- Close Arduino Serial Monitor
+
+sudo systemctl enable mongod- Check Device Manager for correct port
+
 - Restart Arduino IDE
 
-**No data in MongoDB:**
-- Check Node backend is running (`npm start`)
-- Verify `CLOUD_POST_URL` in gateway .env
-- Check network connectivity
-- Review gateway logs
+# Node.js
 
----
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -**No data in MongoDB:**
 
-## 🚀 Production Deployment
+sudo apt install -y nodejs- Check Node backend is running (`npm start`)
+
+- Verify CLOUD_POST_URL in gateway .env
+
+# Python- Check network connectivity
+
+sudo apt install -y python3 python3-pip python3-venv- Review gateway logs
+
+```
+
+## Production Deployment
+
+### Step 2: Install Project Dependencies
 
 ### Linux/Jetson (systemd)
 
-#### 1. Install System Dependencies
+#### Python Gateway
 
-```bash
-# MongoDB
-wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-sudo apt update
-sudo apt install -y mongodb-org
-sudo systemctl start mongod
-sudo systemctl enable mongod
+**Python Gateway:**
 
-# Node.js
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
+```bash```bash
 
-# Python
-sudo apt install -y python3 python3-pip python3-venv
-```
+cd host/python-gatewaysudo cp host/python-gateway/airguard-gateway.service /etc/systemd/system/
 
-#### 2. Install Project Dependencies
+python -m venv venv# Edit service file with correct paths/user
 
-```bash
-# Python Gateway
-cd host/python-gateway
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your settings
+sudo systemctl enable airguard-gateway
 
-# Node Backend
-cd ../../host/node-backend
+# Windowssudo systemctl start airguard-gateway
+
+.\venv\Scripts\Activate.ps1```
+
+
+
+# Linux/Mac**MQTT Bridge:**
+
+source venv/bin/activate```bash
+
+sudo cp bridges/mqtt-mongo/mqtt-bridge.service /etc/systemd/system/
+
+pip install -r requirements.txt# Edit service file
+
+```sudo systemctl enable mqtt-bridge
+
+sudo systemctl start mqtt-bridge
+
+#### Node.js Services```
+
+
+
+```bash### Security
+
+# Backend
+
+cd host/node-backend- Set `AUTH_TOKEN` in Node backend
+
+npm install- Enable MongoDB authentication
+
+- Use TLS for MQTT (port 8883)
+
+# MQTT Broker- Reverse proxy (nginx) for HTTPS
+
+cd ../../mqtt-broker- Restrict CORS origins in production
+
 npm install
-cp .env.example .env
 
-# MQTT Broker
-cd ../../mqtt-broker
-npm install
+## File Structure
 
 # MQTT-MongoDB Bridge
-cd ../bridges/mqtt-mongo
-npm install
-cp .env.example .env
+
+cd ../bridges/mqtt-mongo```
+
+npm installesp32dongle/
+
+```├── esp32s3-gps-mpu-button-sender/    # Sender firmware
+
+├── esp32s3-gps-mpu-button-receiver/  # Receiver firmware
+
+### Step 3: Configure Environment Variables├── host/
+
+│   ├── python-gateway/               # Serial parser → SQLite/REST/MQTT
+
+#### Python Gateway (`host/python-gateway/.env`)│   └── node-backend/                 # MongoDB + REST + WebSocket
+
+├── bridges/
+
+```env│   ├── mqtt-mongo/                   # MQTT → MongoDB bridge
+
+# Serial Port Configuration│   ├── convex/                       # (Future) Convex integration
+
+SERIAL_PORT=COM12              # Windows: COMx, Linux: /dev/ttyUSBx or /dev/ttyACMx│   └── pinecone/                     # (Future) Vector search
+
+SERIAL_BAUD=115200└── README.md                         # This file
+
 ```
 
-#### 3. Configure Environment Variables
+# SQLite Database
 
-**Python Gateway** (`host/python-gateway/.env`):
-```env
-SERIAL_PORT=/dev/ttyUSB0        # Your ESP32 receiver port
-CLOUD_POST_URL=http://localhost:8080/v1/samples
-MQTT_BROKER=127.0.0.1
-MQTT_PORT=1883
-MQTT_TOPIC=espnow/samples
-SQLITE_DB=airguard.db
-```
+SQLITE_DB=airguard.db## Development
 
-**Node Backend** (`host/node-backend/.env`):
-```env
-PORT=8080
-MONGO_URI=mongodb://localhost:27017
-DB_NAME=airguard
-COLLECTION_NAME=samples
-WS_PORT=8081
-AUTH_TOKEN=your-secure-token-here
-CORS_ORIGIN=*
-```
 
-**MQTT-MongoDB Bridge** (`bridges/mqtt-mongo/.env`):
-```env
-MQTT_BROKER=mqtt://127.0.0.1:1883
-MQTT_TOPIC=espnow/samples
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB=airguard
-MONGO_COLLECTION=samples
-WS_PORT=8081
-```
 
-#### 4. Setup Systemd Services
+# Cloud REST Endpoint (optional)**Monitor sender:**
 
-**Python Gateway Service:**
-```bash
-sudo cp systemd/airguard-gateway.service /etc/systemd/system/
-# Edit service file with correct paths/user
-sudo systemctl enable airguard-gateway
-sudo systemctl start airguard-gateway
-```
+CLOUD_POST_URL=http://localhost:8080/v1/samples```bash
 
-**MQTT Broker Service:**
-```bash
-sudo cp systemd/airguard-mqtt-broker.service /etc/systemd/system/
-sudo systemctl enable airguard-mqtt-broker
-sudo systemctl start airguard-mqtt-broker
-```
+CLOUD_AUTH_TOKEN=              # Leave empty for no authentication# Arduino Serial Monitor @ 115200 baud
 
-**Node Backend Service:**
-```bash
-sudo cp systemd/airguard-backend.service /etc/systemd/system/
-sudo systemctl enable airguard-backend
-sudo systemctl start airguard-backend
-```
-
-**MQTT-MongoDB Bridge Service:**
-```bash
-sudo cp systemd/airguard-mqtt-bridge.service /etc/systemd/system/
-sudo systemctl enable airguard-mqtt-bridge
-sudo systemctl start airguard-mqtt-bridge
-```
-
-#### 5. Verify Services
-
-```bash
-sudo systemctl status airguard-gateway
-sudo systemctl status airguard-mqtt-broker
-sudo systemctl status airguard-backend
-sudo systemctl status airguard-mqtt-bridge
-```
-
-#### 6. Monitor Logs
-
-```bash
-# Python gateway logs
-sudo journalctl -u airguard-gateway -f
-
-# MQTT broker logs
-sudo journalctl -u airguard-mqtt-broker -f
-
-# Node backend logs
-sudo journalctl -u airguard-backend -f
-
-# MQTT bridge logs
-sudo journalctl -u airguard-mqtt-bridge -f
-```
-
-### Security Best Practices
-
-- **Set `AUTH_TOKEN`** in Node backend .env
-- **Enable MongoDB authentication** in production
-- **Use TLS for MQTT** (port 8883 instead of 1883)
-- **Reverse proxy** (nginx) for HTTPS on Node backend
-- **Restrict CORS origins** in production (not `*`)
-- **Firewall rules** to limit port access
-- **Regular backups** of MongoDB data
-
----
-
-## 👨‍💻 Development
-
-### Monitor Sender
-
-```bash
-# Arduino Serial Monitor @ 115200 baud
 # Or: screen COM14 115200  (Windows)
-# Or: screen /dev/ttyACM0 115200  (Linux)
-```
 
-### Monitor Receiver
+# MQTT Configuration (optional)# Or: screen /dev/ttyACM0 115200  (Linux)
+
+MQTT_BROKER=127.0.0.1```
+
+MQTT_PORT=1883
+
+MQTT_TOPIC=espnow/samples**Monitor receiver:**
+
+MQTT_USERNAME=```bash
+
+MQTT_PASSWORD=# Same as above, different port
+
+MQTT_QOS=1```
+
+
+
+# Logging**Test MQTT:**
+
+LOG_LEVEL=INFO```bash
+
+```# Subscribe
+
+mosquitto_sub -t espnow/samples -v
+
+#### Node.js Backend (`host/node-backend/.env`)
+
+# Publish test
+
+```envmosquitto_pub -t espnow/samples -m '{"batchId":"TEST","samples":1}'
+
+# Server Configuration```
+
+PORT=8080
+
+NODE_ENV=development**Query MongoDB:**
 
 ```bash
-# Same as above, different port
+
+# MongoDBmongosh
+
+MONGO_URI=mongodb://localhost:27017> use airguard
+
+MONGO_DB=airguard> db.samples.find().sort({createdAt:-1}).limit(5).pretty()
+
 ```
 
-### Test Data Ingestion
+# WebSocket
 
-```bash
-# Send test POST to backend
-curl -X POST http://localhost:8080/v1/samples \
-  -H "Content-Type: application/json" \
-  -d '{
-    "batchId": "0xTEST1234",
-    "sessionMs": 10000,
-    "samples": 1000,
-    "lat": 34.05,
-    "lon": -118.25,
-    "alt": 100.0
-  }'
-```
+WS_PORT=8081## TODO
 
-### Query MongoDB
 
-```bash
-mongosh
-use airguard
-db.samples.find().limit(5).pretty()
-db.samples.countDocuments()
-```
 
----
+# Security- [ ] Add JSON output to receiver (in addition to fenced block)
 
-## 📝 TODO
+AUTH_TOKEN=                    # Leave empty for no authentication- [ ] Convex integration for real-time sync
 
-- [ ] Web dashboard: Add map view for GPS coordinates
-- [ ] Node backend: GraphQL API
-- [ ] Python gateway: Batch insert for performance
-- [ ] ESP32: Deep sleep mode when idle
-- [ ] Health metrics endpoints (packets/min, ACK ratio)
-- [ ] Unique index on `batchId` + timestamp in MongoDB
+- [ ] Pinecone vector indexing for motion similarity search
+
+# CORS- [ ] Dashboard frontend (React + WebSocket)
+
+CORS_ORIGIN=*- [ ] Health metrics endpoints (packets/min, ACK ratio)
+
+```- [ ] Unique index on `batchId` + timestamp
+
 - [ ] Windows service wrapper for Python gateway
 
----
+#### MQTT-MongoDB Bridge (`bridges/mqtt-mongo/.env`)
 
-## 📄 License
+## License
 
-MIT License - See [LICENSE](LICENSE) file for details
+```env
 
----
+# MQTT ConfigurationMIT
 
-## 🙏 Support
+MQTT_BROKER=mqtt://127.0.0.1:1883
 
-For issues, check:
-1. Serial monitor output (sender + receiver)
-2. Python gateway logs
-3. Node backend logs
+MQTT_TOPIC=espnow/samples## Support
+
+
+
+# MongoDBFor issues, check:
+
+MONGO_URI=mongodb://localhost:270171. Serial monitor output (sender + receiver)
+
+MONGO_DB=airguard2. Python gateway logs
+
+MONGO_COLLECTION=samples3. Node backend logs
+
 4. MongoDB connection status
-5. MQTT broker status
 
-**Built with ❤️ for reliable embedded IoT telemetry**
+# WebSocket5. MQTT broker status
 
----
+WS_PORT=8081
 
-#### Upload Sender Firmware
+```---
+
+
+
+### Step 4: Upload ESP32 Firmware**Built with ❤️ for reliable embedded IoT telemetry**
+
+
+#### Sender Firmware
 
 1. Open Arduino IDE
 2. File → Open → `esp32s3-gps-mpu-button-sender/esp32s3-gps-mpu-button-sender.ino`
@@ -879,7 +726,7 @@ For issues, check:
 4. Tools → Port → Select sender's COM port
 5. Click Upload (Ctrl+U)
 
-**LED States:**
+**LED Indicators:**
 - **White**: Waiting for GPS fix
 - **Blue**: GPS locked, ready to send
 - **Red**: Button pressed, collecting data
@@ -960,13 +807,9 @@ esp32dongle/
 │   ├── airguard-mqtt-bridge.service
 │   └── airguard-gateway.service
 │
-├── start-services.py                      # Cross-platform startup (Python)
-├── stop-services.py                       # Cross-platform shutdown (Python)
-├── health-check.py                        # Cross-platform health check (Python)
-├── start-services.ps1                     # Windows startup (PowerShell - legacy)
-├── start-services.sh                      # Linux startup (Shell - legacy)
-├── stop-services.ps1                      # Windows shutdown (PowerShell - legacy)
-├── requirements-scripts.txt               # Python dependencies for scripts
+├── start-services.ps1                     # Windows startup script
+├── start-services.sh                      # Linux startup script
+├── stop-services.ps1                      # Windows shutdown script
 └── .gitignore                             # Git ignore rules
 ```
 

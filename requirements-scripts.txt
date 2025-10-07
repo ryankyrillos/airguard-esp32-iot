@@ -1,0 +1,8 @@
+# Airguard Cross-Platform Scripts Requirements
+# Install with: pip install -r requirements-scripts.txt
+
+# Process management
+psutil>=5.9.0
+
+# Serial port detection (optional - for health check)
+pyserial>=3.5
