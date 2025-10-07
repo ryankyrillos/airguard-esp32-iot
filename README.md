@@ -1,104 +1,157 @@
-# 🛡️ Airguard - ESP32-S3 IoT Sensor System# Airguard — ESP32-S3 Motion & GPS Tracker
+# 🛡️ Airguard - ESP32-S3 IoT Sensor System
 
+> **Complete end-to-end IoT solution** for capturing GPS, accelerometer, gyroscope, and temperature data from ESP32-S3 devices and streaming to a cloud dashboard with real-time WebSocket updates.
 
+[![GitHub](https://img.shields.io/badge/GitHub-ryankyrillos%2Fairguard--esp32--iot-blue?logo=github)](https://github.com/ryankyrillos/airguard-esp32-iot)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![ESP32](https://img.shields.io/badge/ESP32-S3-red.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
 
-> **Complete end-to-end IoT solution** for capturing GPS, accelerometer, gyroscope, and temperature data from ESP32-S3 devices and streaming to a cloud dashboard with real-time WebSocket updates.> Reliable, hot-plug-safe motion (MPU6050) + GPS capture on ESP32-S3 with ESP-NOW wireless transmission and cloud pipeline.
+---
 
+## 📸 Screenshots
 
+### Real-time Dashboard
+![Airguard Dashboard](assets/images/Dashboard.png)
+*Live WebSocket updates showing GPS coordinates, sensor data, and sample history*
 
----## System Overview
+### System Running
+![All Services Running](assets/images/Terminals.png)
+*Python gateway, MQTT broker, Node.js backend, and MongoDB bridge in action*
 
+---
 
+## 📋 Table of Contents
 
-## 📋 Table of Contents```
+- [Overview](#-overview)
+- [System Architecture](#️-system-architecture)
+- [Hardware Requirements](#-hardware-requirements)
+- [Quick Start (5 Minutes)](#-quick-start-5-minutes)
+- [Detailed Setup Guide](#-detailed-setup-guide)
+- [Project Structure](#-project-structure)
+- [Data Flow](#-data-flow)
+- [Configuration](#️-configuration)
+- [Troubleshooting](#-troubleshooting)
+- [API Reference](#-api-reference)
+- [Development](#-development)
+- [Production Deployment](#-production-deployment)
+- [Monitoring & Logs](#-monitoring--logs)
+- [Security](#-security)
 
-┌─────────────────────────────────────────────────────────────────┐
+---
 
-- [Overview](#-overview)│                        SENDER ESP32-S3                          │
+## 🎯 Overview
 
-- [System Architecture](#️-system-architecture)│  MPU6050 (I2C) + GPS (UART) + Button + RGB LED + ESP-NOW TX    │
+**Airguard** is a complete IoT sensor data collection and monitoring system that combines:
 
-- [Hardware Requirements](#-hardware-requirements)└──────────────────┬──────────────────────────────────────────────┘
+- **ESP32-S3 Hardware**: Two devices communicating via ESP-NOW wireless protocol
+- **Sensors**: GPS (NEO-6M), IMU (MPU6050), Temperature
+- **Host Services**: Python gateway, MQTT broker, Node.js backend, MongoDB database
+- **Real-time Dashboard**: WebSocket-powered web interface
 
-- [Quick Start (5 Minutes)](#-quick-start-5-minutes)                   │ ESP-NOW (2.4GHz, Channel 1)
-
-- [Detailed Setup Guide](#-detailed-setup-guide)                   ↓
-
-- [Project Structure](#-project-structure)┌─────────────────────────────────────────────────────────────────┐
-
-- [Data Flow](#-data-flow)│                      RECEIVER ESP32-S3                          │
-
-- [Configuration](#️-configuration)│             ESP-NOW RX → Serial (115200 baud)                   │
-
-- [Troubleshooting](#-troubleshooting)└──────────────────┬──────────────────────────────────────────────┘
-
-- [API Reference](#-api-reference)                   │ USB Serial
-
-- [Development](#-development)                   ↓
-
-- [Production Deployment](#-production-deployment)┌─────────────────────────────────────────────────────────────────┐
-
-- [Monitoring & Logs](#-monitoring--logs)│                    PYTHON GATEWAY (Host)                        │
-
-- [Security](#-security)│         Parses packets → SQLite + REST + MQTT                   │
-
-└─────────┬────────────────────┬──────────────────────────────────┘
-
----          │                    │
-
-          ↓                    ↓
-
-## 🎯 Overview┌──────────────────┐   ┌──────────────────────────────────────────┐
-
-│  MQTT Broker     │   │        NODE BACKEND                      │
-
-**Airguard** is a complete IoT sensor data collection and monitoring system that combines:│  (Mosquitto)     │   │  MongoDB + REST API + WebSocket          │
-
-└────────┬─────────┘   └──────────────────────────────────────────┘
-
-- **ESP32-S3 Hardware**: Two devices communicating via ESP-NOW wireless protocol         │
-
-- **Sensors**: GPS (NEO-6M), IMU (MPU6050), Temperature         ↓
-
-- **Host Services**: Python gateway, MQTT broker, Node.js backend, MongoDB database┌─────────────────────────────────────────────────────────────────┐
-
-- **Real-time Dashboard**: WebSocket-powered web interface│               MQTT → MONGO BRIDGE (Optional)                    │
-
-│    Subscribes MQTT → Stores MongoDB → Broadcasts WS            │
-
-### ✨ Key Features└─────────────────────────────────────────────────────────────────┘
-
-```
+### ✨ Key Features
 
 ✅ **Wireless Data Collection** - ESP-NOW protocol (no WiFi router needed)  
-
-✅ **Multi-Sensor Support** - GPS, Accelerometer, Gyroscope, Temperature  ## Hardware
-
+✅ **Multi-Sensor Support** - GPS, Accelerometer, Gyroscope, Temperature  
 ✅ **Real-time Updates** - WebSocket streaming to browser dashboard  
+✅ **Local & Cloud Storage** - SQLite + MongoDB dual database  
+✅ **Production Ready** - Systemd services, health checks, monitoring  
+✅ **Easy Deployment** - One-command startup script  
 
-✅ **Local & Cloud Storage** - SQLite + MongoDB dual database  ### Sender
-
-✅ **Production Ready** - Systemd services, health checks, monitoring  - **MCU:** ESP32-S3 Dev Board
-
-✅ **Easy Deployment** - One-command startup script  - **IMU:** MPU6050 (I2C: SDA=GPIO8, SCL=GPIO9, 400kHz)
-
-- **GPS:** FeatherWing GPS (UART: RX=GPIO18, TX=GPIO17, 9600 baud)
-
----- **Button:** GPIO19 (active-low, internal pullup)
-
-- **LED:** NeoPixel RGB on GPIO48
+---
 
 ## 🏗️ System Architecture
 
-### Receiver
-
-```- **MCU:** ESP32-S3 Dev Board
-
-┌─────────────────────────────────────────────────────────────────┐- **Receiver MAC:** `48:CA:43:9A:48:D0` (hardcoded in sender)
-
+```
+┌─────────────────────────────────────────────────────────────────┐
 │                         ESP32-S3 SENDER                         │
+│  GPS (NEO-6M) + IMU (MPU6050) + Button + NeoPixel LED          │
+│                    10-second hold gating                         │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ ESP-NOW Wireless
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       ESP32-S3 RECEIVER                          │
+│              Outputs JSON + Human-Readable Format                │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ USB Serial (COM12 @ 115200)
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      PYTHON GATEWAY                              │
+│    • Parses serial data (JSON + fenced block formats)           │
+│    • Stores to SQLite (local database)                          │
+│    • Publishes to MQTT broker                                   │
+│    • POSTs to REST API                                          │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ MQTT Publish (QoS 1)
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       MQTT BROKER                                │
+│                    (Aedes - Port 1883)                           │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ Subscribe
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   MQTT-MONGODB BRIDGE                            │
+│    • Subscribes to espnow/samples topic                         │
+│    • Inserts data into MongoDB                                  │
+│    • Broadcasts to WebSocket clients                            │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        MONGODB                                   │
+│              Database: airguard                                  │
+│              Collection: samples                                 │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     NODE.JS BACKEND                              │
+│    • REST API (Express - Port 8080)                             │
+│    • WebSocket Server (Port 8081)                               │
+│    • Serves historical data from MongoDB                        │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ WebSocket Stream
+                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    WEB DASHBOARD                                 │
+│    • Real-time sensor data display                              │
+│    • GPS location mapping                                       │
+│    • Historical data table                                      │
+│    • Live updates via WebSocket                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-│  GPS (NEO-6M) + IMU (MPU6050) + Button + NeoPixel LED          │## Quick Start
+---
+
+## 🔧 Hardware Requirements
+
+### ESP32-S3 Devices (x2)
+
+**Sender Device:**
+- ESP32-S3 DevKit
+- GPS Module: NEO-6M (UART - TX2, RX2)
+- IMU Sensor: MPU6050 (I2C - SDA, SCL)
+- Button (GPIO with pull-up)
+- NeoPixel RGB LED (WS2812)
+- Power: USB or Battery
+
+**Receiver Device:**
+- ESP32-S3 DevKit
+- USB connection to host computer
+
+### Host Computer
+
+- **OS**: Windows 10/11, Linux, or macOS
+- **RAM**: 4GB minimum (8GB recommended)
+- **Storage**: 1GB free space
+- **Ports**: USB port for ESP32 receiver
+
+---
+
+## ⚡ Quick Start (5 Minutes)
 
 │                    10-second hold gating                         │
 
@@ -722,6 +775,11 @@ WS_PORT=8081
 ```
 esp32dongle/
 ├── README.md                              # ← YOU ARE HERE - Complete documentation
+│
+├── assets/                                # Project assets
+│   └── images/                            # Screenshots and images
+│       ├── Dashboard.png                  # Web dashboard screenshot
+│       └── Terminals.png                  # System running screenshot
 │
 ├── esp32s3-gps-mpu-button-sender/        # Sender ESP32 firmware
 │   └── esp32s3-gps-mpu-button-sender.ino
