@@ -917,7 +917,7 @@ WS_PORT=8081
 - JSON format (for machine parsing)
 
 ---
-
+---
 ## 📁 Project Structure
 
 ```
