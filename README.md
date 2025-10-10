@@ -116,7 +116,451 @@ graph TB
 
 ---
 
-## 🔧 Hardware Requirements
+## � Getting Started - Complete Guide
+
+### Step 1️⃣: Install System Dependencies
+
+#### 📋 Windows (PowerShell as Administrator)
+
+```powershell
+# Install Chocolatey package manager (if not already installed)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install MongoDB, Node.js, Python, Git
+choco install -y mongodb nodejs-lts python git
+
+# Start MongoDB service
+net start MongoDB
+
+# Verify installations
+node --version
+python --version
+git --version
+mongod --version
+```
+
+#### 📋 macOS (Terminal)
+
+```bash
+# Install Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install dependencies
+brew install mongodb-community node python@3.11 git
+
+# Start MongoDB
+brew services start mongodb-community
+
+# Verify installations
+node --version
+python3 --version
+git --version
+mongod --version
+```
+
+#### 📋 Ubuntu/Debian (Terminal)
+
+```bash
+# Update package list
+sudo apt update
+
+# Install Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Install Python 3.9+
+sudo apt install -y python3 python3-pip python3-venv
+
+# Install MongoDB
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt update
+sudo apt install -y mongodb-org
+
+# Install Git
+sudo apt install -y git
+
+# Start MongoDB
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Verify installations
+node --version
+python3 --version
+git --version
+mongod --version
+```
+
+---
+
+### Step 2️⃣: Clone the Repository
+
+```bash
+# Clone the project
+git clone https://github.com/ryankyrillos/airguard-esp32-iot.git
+cd airguard-esp32-iot
+
+# Switch to enhancements branch (for latest features)
+git checkout feature/enhancements
+```
+
+---
+
+### Step 3️⃣: Install Project Dependencies
+
+#### Python Gateway Dependencies
+
+```bash
+# Navigate to Python gateway
+cd host/python-gateway
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows:
+.\venv\Scripts\Activate.ps1
+
+# macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Go back to project root
+cd ../..
+```
+
+#### Node.js Backend Dependencies
+
+```bash
+# Install MQTT Broker dependencies
+cd mqtt-broker
+npm install
+cd ..
+
+# Install Node Backend dependencies
+cd host/node-backend
+npm install
+cd ../..
+
+# Install MQTT-MongoDB Bridge dependencies
+cd bridges/mqtt-mongo
+npm install
+cd ../..
+```
+
+#### Script Management Dependencies
+
+```bash
+# Install cross-platform script dependencies
+pip install -r requirements-scripts.txt
+```
+
+---
+
+### Step 4️⃣: Configure Environment Variables
+
+#### Create .env Files
+
+```bash
+# Python Gateway
+cp host/python-gateway/.env.example host/python-gateway/.env
+
+# Node Backend
+cp host/node-backend/.env.example host/node-backend/.env
+
+# MQTT-MongoDB Bridge
+cp bridges/mqtt-mongo/.env.example bridges/mqtt-mongo/.env
+```
+
+#### Find Your ESP32 Serial Port
+
+**Windows:**
+```powershell
+# List all COM ports
+[System.IO.Ports.SerialPort]::getportnames()
+
+# Output example: COM3, COM12, COM14
+```
+
+**macOS:**
+```bash
+ls /dev/cu.usbserial-* /dev/cu.usbmodem-*
+```
+
+**Linux:**
+```bash
+ls /dev/ttyUSB* /dev/ttyACM*
+```
+
+#### Edit Python Gateway Configuration
+
+**Windows:**
+```powershell
+# Edit the file
+notepad host/python-gateway/.env
+
+# Or use PowerShell to set COM port directly
+(Get-Content host/python-gateway/.env) -replace 'SERIAL_PORT=COM12', 'SERIAL_PORT=COM14' | Set-Content host/python-gateway/.env
+```
+
+**macOS/Linux:**
+```bash
+# Edit the file
+nano host/python-gateway/.env
+
+# Or use sed to set port directly
+sed -i 's|SERIAL_PORT=/dev/ttyACM0|SERIAL_PORT=/dev/ttyUSB0|g' host/python-gateway/.env
+```
+
+**Required settings in `host/python-gateway/.env`:**
+```env
+SERIAL_PORT=COM12                          # ← Change to your receiver's port
+CLOUD_POST_URL=http://localhost:8080/v1/samples
+MQTT_BROKER=127.0.0.1
+MQTT_PORT=1883
+```
+
+---
+
+### Step 5️⃣: Upload ESP32 Firmware
+
+#### Install Arduino IDE and ESP32 Support
+
+1. **Download Arduino IDE**: https://www.arduino.cc/en/software
+2. **Add ESP32 Board Support**:
+   - Open Arduino IDE
+   - File → Preferences
+   - Additional Board Manager URLs:
+     ```
+     https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+     ```
+   - Tools → Board → Boards Manager
+   - Search "ESP32" → Install "esp32 by Espressif Systems"
+
+3. **Install Required Libraries**:
+   - Tools → Manage Libraries
+   - Install these libraries:
+     - `Adafruit NeoPixel`
+     - `Adafruit MPU6050`
+     - `TinyGPSPlus`
+     - `ArduinoJson`
+
+#### Upload Sender Firmware
+
+```
+1. Open Arduino IDE
+2. File → Open → esp32s3-gps-mpu-button-sender/esp32s3-gps-mpu-button-sender.ino
+3. Tools → Board → ESP32 Arduino → ESP32S3 Dev Module
+4. Tools → Port → Select sender ESP32 port (e.g., COM14)
+5. Click Upload button (→) or press Ctrl+U
+6. Wait for "Done uploading" message
+```
+
+#### Upload Receiver Firmware
+
+```
+1. Open Arduino IDE
+2. File → Open → esp32s3-receiver-json/esp32s3-receiver-json.ino
+3. Tools → Board → ESP32 Arduino → ESP32S3 Dev Module
+4. Tools → Port → Select receiver ESP32 port (e.g., COM12)
+5. Click Upload button (→) or press Ctrl+U
+6. Wait for "Done uploading" message
+```
+
+#### Verify Firmware Upload
+
+Open Serial Monitor (Tools → Serial Monitor, set to 115200 baud):
+
+**Sender output:**
+```
+[INIT] ESP-NOW initialized
+[GPS] Searching for satellites...
+[MPU] MPU6050 initialized
+```
+
+**Receiver output:**
+```
+[INIT] ESP-NOW receiver ready
+MAC Address: 48:CA:43:9A:48:D0
+Waiting for data...
+```
+
+---
+
+### Step 6️⃣: Start All Services
+
+#### Using Cross-Platform Python Script (Recommended)
+
+```bash
+# One command to start everything
+python start-services.py
+```
+
+This will automatically:
+- ✅ Check and start MongoDB
+- ✅ Launch MQTT Broker (port 1883)
+- ✅ Launch Node.js Backend (port 8080, 8081)
+- ✅ Launch MQTT-MongoDB Bridge
+- ✅ Launch Python Gateway (reading from configured COM port)
+
+#### Alternative: Start Services Manually
+
+**Terminal 1 - MQTT Broker:**
+```bash
+cd mqtt-broker
+npm start
+```
+
+**Terminal 2 - Node Backend:**
+```bash
+cd host/node-backend
+npm start
+```
+
+**Terminal 3 - MQTT Bridge:**
+```bash
+cd bridges/mqtt-mongo
+node bridge.js
+```
+
+**Terminal 4 - Python Gateway:**
+```bash
+cd host/python-gateway
+
+# Windows:
+.\venv\Scripts\Activate.ps1
+
+# macOS/Linux:
+source venv/bin/activate
+
+# Run gateway:
+python gateway_enhanced.py
+```
+
+---
+
+### Step 7️⃣: Open the Dashboard
+
+```bash
+# Navigate to dashboard
+# Windows:
+start host/dashboard.html
+
+# macOS:
+open host/dashboard.html
+
+# Linux:
+xdg-open host/dashboard.html
+```
+
+Or manually open `host/dashboard.html` in your web browser (Chrome, Firefox, Edge).
+
+---
+
+### Step 8️⃣: Test the System
+
+1. **Press and hold** the button on the sender ESP32
+2. **Wait 10 seconds** for the LED to blink GREEN (first-time safety gate)
+3. **Release the button** when you see 3 GREEN blinks
+4. **Check the dashboard** - you should see new data appear!
+
+**Expected flow:**
+```
+Sender → Button held 10s → GREEN blinks → Release
+    ↓
+ESP-NOW transmission → Receiver
+    ↓
+Serial output → Python Gateway
+    ↓
+SQLite + MQTT + REST API → MongoDB
+    ↓
+WebSocket → Dashboard updates in real-time! ✨
+```
+
+---
+
+### Step 9️⃣: Verify System Health
+
+```bash
+# Run health check
+python health-check.py
+```
+
+**Expected output:**
+```
+============================================================
+🔍 Airguard System Health Check
+============================================================
+
+🌐 Port Status
+  ✓ Port 27017 (MongoDB) is open
+  ✓ Port 1883 (MQTT Broker) is open
+  ✓ Port 8080 (Node Backend HTTP) is open
+  ✓ Port 8081 (WebSocket) is open
+
+⚙️  Process Status
+  ✓ Node.js processes running: 3
+  ✓ Python processes running: 2
+
+✓ All services appear to be running!
+============================================================
+```
+
+---
+
+### Step 🔟: Stop Services (When Done)
+
+```bash
+# Stop all services gracefully
+python stop-services.py
+```
+
+---
+
+## 🎯 Quick Command Reference
+
+**Daily workflow:**
+
+```bash
+# Start everything
+python start-services.py
+
+# Check status
+python health-check.py
+
+# View dashboard
+# Open host/dashboard.html in browser
+
+# Stop everything
+python stop-services.py
+```
+
+**Useful commands:**
+
+```bash
+# View Python gateway logs
+cd host/python-gateway
+python gateway_enhanced.py
+
+# Query MongoDB
+mongosh
+use airguard
+db.samples.find().limit(5).pretty()
+
+# Check Node backend
+curl http://localhost:8080/health
+
+# Test MQTT
+mosquitto_sub -h localhost -t espnow/samples
+```
+
+---
+
+## �🔧 Hardware Requirements
 
 ### ESP32-S3 Devices (x2)
 
