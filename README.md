@@ -1,5 +1,6 @@
 # 🛡️ Airguard - ESP32-S3 IoT Sensor System
 
+
 > **Complete end-to-end IoT solution** for capturing GPS, accelerometer, gyroscope, and temperature data from ESP32-S3 devices and streaming to a cloud dashboard with real-time WebSocket updates.
 
 [![GitHub](https://img.shields.io/badge/GitHub-ryankyrillos%2Fairguard--esp32--iot-blue?logo=github)](https://github.com/ryankyrillos/airguard-esp32-iot)
