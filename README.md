@@ -445,6 +445,7 @@ python gateway_enhanced.py
 
 ### Step 7️⃣: Open the Dashboard
 
+**Local Access (Direct):**
 ```bash
 # Navigate to dashboard
 # Windows:
@@ -455,6 +456,17 @@ open host/dashboard.html
 
 # Linux:
 xdg-open host/dashboard.html
+```
+
+**Remote Access (SSH/Headless):**
+```bash
+# Option 1: Start the dashboard web server
+python3 serve-dashboard.py
+# Then access at: http://<server-ip>:8082/dashboard.html
+
+# Option 2: SSH port forwarding from your local machine
+ssh -L 8082:localhost:8082 -L 8080:localhost:8080 -L 8081:localhost:8081 user@remote-host
+# Then open on your local browser: http://localhost:8082/dashboard.html
 ```
 
 Or manually open `host/dashboard.html` in your web browser (Chrome, Firefox, Edge).

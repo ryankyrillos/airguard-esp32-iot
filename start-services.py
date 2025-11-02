@@ -180,6 +180,42 @@ def main():
         wait_time=2
     )
     
+    # Optionally start dashboard server for remote/SSH access
+    print()
+    print_color("Start Dashboard Web Server? (for SSH/remote access)", Colors.YELLOW)
+    print_color("  Press 'y' to start on port 8082, or Enter to skip", Colors.CYAN)
+    
+    try:
+        import select
+        import sys
+        
+        # Give user 5 seconds to respond
+        if platform.system() != "Windows":
+            # Unix-like systems
+            import sys, select
+            ready, _, _ = select.select([sys.stdin], [], [], 5)
+            if ready:
+                response = sys.stdin.readline().strip().lower()
+                if response == 'y':
+                    start_service(
+                        "Dashboard Server",
+                        f"{python_cmd} serve-dashboard.py",
+                        ".",
+                        wait_time=2
+                    )
+        else:
+            # Windows - just ask without timeout
+            response = input().strip().lower()
+            if response == 'y':
+                start_service(
+                    "Dashboard Server",
+                    f"{python_cmd} serve-dashboard.py",
+                    ".",
+                    wait_time=2
+                )
+    except:
+        pass  # Skip if any issues
+    
     # Summary
     print()
     print_color("=" * 50, Colors.CYAN)
@@ -197,7 +233,9 @@ def main():
     
     print_color("Dashboard:", Colors.YELLOW)
     dashboard_path = get_project_root() / "host" / "dashboard.html"
-    print_color(f"  Open: {dashboard_path}", Colors.WHITE)
+    print_color(f"  Local: file://{dashboard_path}", Colors.WHITE)
+    print_color(f"  Remote (SSH): python3 serve-dashboard.py", Colors.CYAN)
+    print_color(f"               Then visit: http://<server-ip>:8082/dashboard.html", Colors.CYAN)
     print()
     
     print_color("Press button on ESP32 sender to see data flow!", Colors.GREEN)
