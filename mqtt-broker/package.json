@@ -7,7 +7,7 @@
     "start": "node broker.js"
   },
   "dependencies": {
-    "aedes": "^0.51.0",
+    "aedes": "^0.51.3",
     "dotenv": "^16.4.5"
   }
 }

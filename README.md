@@ -533,6 +533,119 @@ python stop-services.py
 
 ---
 
+## ⚡ Quick Start - PostgreSQL Version (Ubuntu/Linux)
+
+This is the **fastest way** to get the system running with PostgreSQL on Ubuntu/Linux.
+
+### Prerequisites
+
+✅ ESP32-S3 devices programmed and connected  
+✅ Receiver connected to `/dev/ttyACM0` (or note your port)
+
+### 1. Install PostgreSQL
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+### 2. Create Database and User
+
+```bash
+sudo -u postgres psql -c "CREATE DATABASE airguard;"
+sudo -u postgres psql -c "CREATE USER airguard_user WITH ENCRYPTED PASSWORD 'airguard_password';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE airguard TO airguard_user;"
+sudo -u postgres psql -c "ALTER USER airguard_user CREATEDB;"
+```
+
+### 3. Configure Python Gateway
+
+```bash
+cd host/python-gateway
+cat > .env << 'EOF'
+SERIAL_PORT=/dev/ttyACM0
+SQLITE_DB=airguard.db
+CLOUD_POST_URL=http://localhost:8080/v1/samples
+CLOUD_AUTH_TOKEN=
+MQTT_BROKER=127.0.0.1
+MQTT_PORT=1883
+MQTT_TOPIC=espnow/samples
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT_QOS=1
+LOG_LEVEL=INFO
+EOF
+cd ../..
+```
+
+### 4. Configure Node.js Backend
+
+```bash
+cd host/node-backend
+cat > .env << 'EOF'
+PORT=8080
+NODE_ENV=development
+PG_HOST=localhost
+PG_PORT=5432
+PG_DATABASE=airguard
+PG_USER=airguard_user
+PG_PASSWORD=airguard_password
+PG_SSL=false
+WS_PORT=8081
+AUTH_TOKEN=
+CORS_ORIGIN=*
+EOF
+cd ../..
+```
+
+### 5. Start All Services (5 Terminals)
+
+**Terminal 1 - MQTT Broker:**
+```bash
+cd mqtt-broker && node broker.js
+```
+
+**Terminal 2 - Node.js Backend:**
+```bash
+cd host/node-backend && npm start
+```
+
+**Terminal 3 - PostgreSQL Bridge:**
+```bash
+cd bridges/mqtt-postgresql && node bridge.js
+```
+
+**Terminal 4 - Python Gateway:**
+```bash
+cd host/python-gateway && python3 gateway_enhanced.py
+```
+
+**Terminal 5 - Dashboard Web Server:**
+```bash
+python3 serve-dashboard.py
+```
+
+### 6. Open Dashboard
+
+Open your browser to: **http://localhost:8082/dashboard.html**
+
+### 7. Test the System
+
+1. Press and hold the button on ESP32 sender
+2. Wait 10 seconds for GREEN LED (first time)
+3. Release button
+4. Watch data appear on dashboard! 🎉
+
+### Verify Database
+
+```bash
+PGPASSWORD='airguard_password' psql -h localhost -U airguard_user -d airguard -c "SELECT batch_id, lat, lon, created_at FROM samples ORDER BY created_at DESC LIMIT 5;"
+```
+
+---
+
 ## 🎯 Quick Command Reference
 
 **Daily workflow:**
