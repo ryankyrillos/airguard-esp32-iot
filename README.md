@@ -688,6 +688,163 @@ Navigate to `host/dashboard.html` and open with your browser.
 
 ---
 
+## 🎯 **PROVEN WORKING PROCESS** (From Live Testing - Ubuntu Linux)
+
+**✅ This exact sequence was tested and confirmed working on Ubuntu Linux system:**
+
+### Step 1: Verify MongoDB is Running
+```bash
+# Check if MongoDB is active
+sudo systemctl status mongod
+
+# If not running, start it
+sudo systemctl start mongod
+sudo systemctl enable mongod
+```
+
+### Step 2: Install Project Dependencies
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot
+
+# Install Python gateway dependencies
+cd host/python-gateway
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cd ../..
+
+# Install Node.js dependencies
+cd mqtt-broker && npm install && cd ..
+cd host/node-backend && npm install && cd ../..
+cd bridges/mqtt-mongo && npm install && cd ../..
+
+# Install script dependencies (for automation scripts)
+pip install -r requirements-scripts.txt
+```
+
+### Step 3: Configure Serial Port
+```bash
+# Find your ESP32 receiver port
+ls /dev/ttyUSB* /dev/ttyACM*
+# Expected: /dev/ttyACM0 (or similar)
+
+# Edit configuration
+nano host/python-gateway/.env
+# Set: SERIAL_PORT=/dev/ttyACM0  (confirmed working port)
+
+# Ensure user has serial port access
+sudo usermod -a -G dialout $USER
+newgrp dialout  # Or log out and back in
+```
+
+### Step 4: Start Services - Two Methods
+
+#### Method A: Automated Startup (Recommended)
+```bash
+# Single command to start all services
+python3 start-services.py
+```
+
+#### Method B: Manual Startup (4 Terminals - Confirmed Working)
+
+**Terminal 1 - MQTT Broker:**
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot/mqtt-broker
+node broker.js
+```
+*Expected: "🚀 MQTT Broker started on port 1883"*
+
+**Terminal 2 - Node Backend:**
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot/host/node-backend
+npm start
+```
+*Expected: "✓ HTTP server listening on port 8080" + "✓ WebSocket server on port 8081"*
+
+**Terminal 3 - MQTT-MongoDB Bridge:**
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot/bridges/mqtt-mongo
+node bridge.js
+```
+*Expected: "✓ MongoDB connected: airguard" + "✓ MQTT connected"*
+
+**Terminal 4 - Python Gateway (Foreground):**
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot/host/python-gateway
+source venv/bin/activate
+python gateway_enhanced.py
+```
+*Expected: "[INFO] Serial port opened: /dev/ttyACM0 @ 115200" + "[INFO] Gateway running"*
+
+**Or Python Gateway (Background - Actually Used):**
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot/host/python-gateway
+source venv/bin/activate
+nohup python -u gateway_enhanced.py > gateway.log 2>&1 &
+```
+
+### Step 5: Verify All Services Running
+```bash
+# Check system health
+python3 health-check.py
+
+# Expected output:
+# ✓ Port 27017 (MongoDB) is open
+# ✓ Port 1883 (MQTT Broker) is open
+# ✓ Port 8080 (Node Backend HTTP) is open
+# ✓ Port 8081 (WebSocket) is open
+# ✓ Available ports: /dev/ttyACM0
+```
+
+```bash
+# Check running processes
+ps aux | grep -E "(node|python)" | grep -E "(broker|server|bridge|gateway)"
+
+# Should show:
+# myuser   node broker.js
+# myuser   node src/server.js
+# myuser   node bridge.js  
+# myuser   python gateway_enhanced.py
+```
+
+### Step 6: Open Dashboard & Test
+```bash
+# Open dashboard
+xdg-open host/dashboard.html
+# Or manually open host/dashboard.html in Firefox/Chrome
+```
+
+**Testing Steps:**
+1. **Press and hold button** on ESP32 sender for 10+ seconds (first time safety gate)
+2. **Wait for LED to blink GREEN** (3 times)
+3. **Release button** 
+4. **Check dashboard** - real-time data should appear immediately!
+
+### Step 7: Confirmed Working Ports
+```bash
+# The system uses these localhost ports:
+# MongoDB:     127.0.0.1:27017
+# MQTT Broker: 0.0.0.0:1883
+# HTTP API:    0.0.0.0:8080
+# WebSocket:   0.0.0.0:8081
+# Serial Port: /dev/ttyACM0 @ 115200 baud
+```
+
+### Step 8: Stop Services
+```bash
+# Automated shutdown
+python3 stop-services.py
+
+# Or manually kill processes:
+# Ctrl+C in each terminal, or:
+# pkill -f "node broker.js"
+# pkill -f "node src/server.js" 
+# pkill -f "node bridge.js"
+# pkill -f "python.*gateway_enhanced.py"
+```
+
+---
+
 ## 🔧 Hardware Requirements
 
 ### ESP32-S3 Devices (x2)
