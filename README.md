@@ -18,7 +18,7 @@
 
 ### System Running
 ![All Services Running](assets/images/Terminals.png)
-*Python gateway, MQTT broker, Node.js backend, and MongoDB bridge in action*
+*Python gateway, MQTT broker, Node.js backend, and PostgreSQL bridge in action*
 
 ---
 
@@ -47,7 +47,7 @@
 
 - **ESP32-S3 Hardware**: Two devices communicating via ESP-NOW wireless protocol
 - **Sensors**: GPS (NEO-6M), IMU (MPU6050), Temperature
-- **Host Services**: Python gateway, MQTT broker, Node.js backend, MongoDB database
+- **Host Services**: Python gateway, MQTT broker, Node.js backend, PostgreSQL database
 - **Real-time Dashboard**: WebSocket-powered web interface
 
 ### ✨ Key Features
@@ -55,7 +55,7 @@
 ✅ **Wireless Data Collection** - ESP-NOW protocol (no WiFi router needed)  
 ✅ **Multi-Sensor Support** - GPS, Accelerometer, Gyroscope, Temperature  
 ✅ **Real-time Updates** - WebSocket streaming to browser dashboard  
-✅ **Local & Cloud Storage** - SQLite + MongoDB dual database  
+✅ **Local & Cloud Storage** - SQLite + PostgreSQL dual database  
 ✅ **Production Ready** - Systemd services, health checks, monitoring  
 ✅ **Easy Deployment** - One-command startup script  
 
@@ -79,12 +79,12 @@ graph TB
     end
     
     subgraph Processing["⚙️ Processing Layer"]
-        E["MQTT-MONGODB BRIDGE<br/>• Subscribe espnow/samples<br/>• Insert to MongoDB<br/>• WebSocket Broadcast"]
-        F["NODE.JS BACKEND<br/>• REST API Port 8080<br/>• WebSocket Port 8081<br/>• Query MongoDB"]
+        E["MQTT-POSTGRESQL BRIDGE<br/>• Subscribe espnow/samples<br/>• Insert to PostgreSQL<br/>• WebSocket Broadcast"]
+        F["NODE.JS BACKEND<br/>• REST API Port 8080<br/>• WebSocket Port 8081<br/>• Query PostgreSQL"]
     end
     
     subgraph Storage["💾 Data Storage"]
-        G[("MONGODB<br/>Database: airguard<br/>Collection: samples")]
+        G[("POSTGRESQL<br/>Database: airguard<br/>Table: samples")]
         H[("SQLite<br/>Local Backup")]
     end
     
@@ -603,7 +603,7 @@ mosquitto_sub -h localhost -t espnow/samples
 
 ✅ Node.js 18+ installed  
 ✅ Python 3.9+ installed  
-✅ MongoDB installed and running  
+✅ **PostgreSQL installed and running** (see PostgreSQL Setup section below)  
 ✅ Arduino IDE with ESP32-S3 board support  
 ✅ Both ESP32 devices programmed and connected  
 
@@ -841,6 +841,310 @@ python3 stop-services.py
 # pkill -f "node src/server.js" 
 # pkill -f "node bridge.js"
 # pkill -f "python.*gateway_enhanced.py"
+```
+
+---
+
+## 🐘 **PostgreSQL Setup & Testing** (NEW in this branch)
+
+**✅ This branch uses PostgreSQL instead of MongoDB for better performance and SQL capabilities**
+
+### Prerequisites for PostgreSQL Version
+
+**System Requirements:**
+- ✅ Node.js 18+ installed  
+- ✅ Python 3.9+ installed  
+- ✅ **PostgreSQL 12+ installed** (NEW requirement)
+- ✅ Arduino IDE with ESP32-S3 board support  
+- ✅ Both ESP32 devices programmed and connected  
+
+### Step 1: Install PostgreSQL
+
+#### Option A: Native Installation (Recommended)
+
+**Ubuntu/Debian:**
+```bash
+# Update package list
+sudo apt update
+
+# Install PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+
+# Start and enable PostgreSQL
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Check status
+sudo systemctl status postgresql
+```
+
+**CentOS/RHEL/Fedora:**
+```bash
+# Install PostgreSQL
+sudo dnf install -y postgresql-server postgresql-contrib
+
+# Initialize database
+sudo postgresql-setup --initdb
+
+# Start and enable
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+#### Option B: Docker Installation (Easy Testing)
+
+```bash
+# Run PostgreSQL in Docker container
+docker run -d \
+  --name airguard-postgres \
+  -e POSTGRES_DB=airguard \
+  -e POSTGRES_USER=airguard_user \
+  -e POSTGRES_PASSWORD=airguard_password \
+  -p 5432:5432 \
+  postgres:15
+
+# Check container is running
+docker ps | grep postgres
+```
+
+### Step 2: Configure PostgreSQL Database
+
+#### Create Database and User
+```bash
+# Switch to postgres user and create database
+sudo -u postgres psql
+
+# In PostgreSQL shell, run:
+CREATE DATABASE airguard;
+CREATE USER airguard_user WITH ENCRYPTED PASSWORD 'airguard_password';
+GRANT ALL PRIVILEGES ON DATABASE airguard TO airguard_user;
+ALTER USER airguard_user CREATEDB;
+\q
+```
+
+#### Test Connection
+```bash
+# Test connection (you'll be prompted for password: airguard_password)
+psql -h localhost -U airguard_user -d airguard
+
+# In PostgreSQL shell, test:
+\dt  # Should show "No relations found" (empty database)
+\q   # Exit
+```
+
+### Step 3: Install Project Dependencies
+
+```bash
+cd /home/myuser/Documents/airguard-esp32-iot-postgresql
+
+# Install PostgreSQL bridge dependencies
+cd bridges/mqtt-postgresql
+npm install
+cd ../..
+
+# Install Node.js backend dependencies  
+cd host/node-backend
+npm install
+cd ../..
+
+# Install script dependencies
+pip install -r requirements-scripts.txt
+```
+
+### Step 4: Configure Environment Files
+
+**PostgreSQL Bridge** (`bridges/mqtt-postgresql/.env`):
+```bash
+cp bridges/mqtt-postgresql/.env.example bridges/mqtt-postgresql/.env
+# Edit the file:
+nano bridges/mqtt-postgresql/.env
+```
+
+**Required PostgreSQL settings:**
+```env
+# PostgreSQL Configuration
+PG_HOST=localhost
+PG_PORT=5432
+PG_DATABASE=airguard
+PG_USER=airguard_user
+PG_PASSWORD=airguard_password
+PG_SSL=false
+
+# WebSocket Broadcasting (enable for dashboard)
+WS_ENABLED=true
+WS_PORT=8081
+```
+
+**Node.js Backend** (`host/node-backend/.env`):
+```bash
+cp host/node-backend/.env.example host/node-backend/.env
+# Edit with same PostgreSQL settings
+```
+
+### Step 5: Test PostgreSQL Version
+
+#### Method A: Automated Startup
+```bash
+# Start all services (will auto-create database schema)
+python3 start-services.py
+```
+
+#### Method B: Manual Testing
+
+**Terminal 1 - MQTT Broker:**
+```bash
+cd mqtt-broker
+node broker.js
+```
+
+**Terminal 2 - Node Backend (PostgreSQL):**
+```bash
+cd host/node-backend
+npm start
+```
+*Expected output:*
+```
+✓ WebSocket server listening on port 8081
+✓ HTTP server listening on port 8080
+✓ Connected to PostgreSQL: airguard
+```
+
+**Terminal 3 - PostgreSQL Bridge:**
+```bash
+cd bridges/mqtt-postgresql
+node bridge.js
+```
+*Expected output:*
+```
+[INFO] ✓ PostgreSQL connected: airguard
+[INFO] ✓ MQTT connected: mqtt://127.0.0.1:1883
+[INFO] MQTT → PostgreSQL bridge running
+```
+
+### Step 6: Verify Database Schema
+
+```bash
+# Connect to database
+psql -h localhost -U airguard_user -d airguard
+
+# Check that table was created automatically
+\dt
+```
+
+**Expected output:**
+```
+          List of relations
+ Schema |  Name   | Type  |    Owner     
+--------+---------+-------+--------------
+ public | samples | table | airguard_user
+```
+
+**Check table structure:**
+```sql
+\d samples
+```
+
+**Expected schema:**
+```
+                        Table "public.samples"
+   Column   |            Type             |                      Modifiers                       
+------------+-----------------------------+-------------------------------------------------------
+ id         | integer                     | not null default nextval('samples_id_seq'::regclass)
+ batch_id   | character varying(50)       | not null
+ session_ms | integer                     | 
+ samples    | integer                     | 
+ lat        | double precision            | 
+ lon        | double precision            | 
+ alt        | double precision            | 
+ gps_fix    | integer                     | 
+ sats       | integer                     | 
+ ax         | double precision            | 
+ ay         | double precision            | 
+ az         | double precision            | 
+ created_at | timestamp without time zone | default CURRENT_TIMESTAMP
+Indexes:
+    "samples_pkey" PRIMARY KEY, btree (id)
+    "samples_batch_id_key" UNIQUE CONSTRAINT, btree (batch_id)
+```
+
+### Step 7: Test ESP32 Data Flow
+
+1. **Press and hold button** on ESP32 sender for 10+ seconds
+2. **Wait for LED to blink GREEN** (3 times)  
+3. **Release button**
+4. **Check database** for new data:
+
+```sql
+-- Count total samples
+SELECT COUNT(*) FROM samples;
+
+-- View latest samples
+SELECT batch_id, lat, lon, gps_fix, sats, created_at 
+FROM samples 
+ORDER BY created_at DESC 
+LIMIT 5;
+```
+
+### Step 8: PostgreSQL vs MongoDB Differences
+
+**✅ Advantages of PostgreSQL Version:**
+- **Better Performance**: Indexed queries, optimized for time-series data
+- **SQL Queries**: Standard SQL instead of MongoDB query language  
+- **ACID Compliance**: Full transaction support for data integrity
+- **Rich Data Types**: Native support for timestamps, numeric precision
+- **Mature Ecosystem**: Extensive tooling and monitoring options
+
+**📊 API Compatibility:**
+- ✅ **Same REST endpoints**: `/v1/samples` works identically
+- ✅ **Same JSON format**: Dashboard requires no changes
+- ✅ **Same WebSocket**: Real-time updates work identically
+
+**🔄 Migration from MongoDB:**
+- Database schema automatically created on first run
+- ESP32 firmware remains identical (no changes needed)
+- Dashboard works without modifications
+- Python gateway unchanged (still uses SQLite + MQTT)
+
+### Troubleshooting PostgreSQL Version
+
+**Connection Refused:**
+```bash
+# Check PostgreSQL is running
+sudo systemctl status postgresql
+
+# Check if port 5432 is listening
+sudo netstat -tlnp | grep 5432
+```
+
+**Authentication Failed:**
+```bash
+# Reset password
+sudo -u postgres psql
+ALTER USER airguard_user PASSWORD 'airguard_password';
+```
+
+**Table Not Created:**
+```sql
+-- Manually create table if needed
+CREATE TABLE IF NOT EXISTS samples (
+  id SERIAL PRIMARY KEY,
+  batch_id VARCHAR(50) UNIQUE NOT NULL,
+  session_ms INTEGER,
+  samples INTEGER,
+  lat FLOAT, lon FLOAT, alt FLOAT,
+  gps_fix INTEGER, sats INTEGER,
+  ax FLOAT, ay FLOAT, az FLOAT,
+  gx FLOAT, gy FLOAT, gz FLOAT,
+  temp_c FLOAT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
